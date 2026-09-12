@@ -15,6 +15,8 @@ function openReturn(order, lines) {
     throw new Error('a return must cover at least one line');
   }
 
+  const eligibleLines = lines.filter(line => !line.finalClearance);
+
   return {
     orderId: order.id,
     lines,
