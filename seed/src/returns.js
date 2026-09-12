@@ -18,8 +18,20 @@ function openReturn(order, lines) {
     throw new Error('a return must cover at least one line');
   }
 
-  // Cửa sổ tính từ deliveredAt, KHÔNG tính từ ngày đặt hàng (docs/ policy nói vậy;
-  // chữ "one month" trên website là vấn đề khác, không thuộc phạm vi ticket này)
+  // RESOLUTION RATIONALE:
+  // Merging main and feature/odk-152-return-window requires enforcing both business rules:
+  // 1. Final clearance items are non-returnable (from main). We filter out non-eligible lines
+  //    and reject the return if no returnable items remain.
+  // 2. Returns must be requested within the 30-day window following delivery (from feature branch).
+  //
+  // Preserving both checks ensures non-clearance items cannot bypass the delivery window rule,
+  // and delivered orders within the window still cannot return final clearance items.
+
+  const eligibleLines = lines.filter(line => !line.finalClearance);
+  if (eligibleLines.length === 0) {
+    throw new Error('cannot return final clearance items');
+  }
+
   if (order.deliveredAt) {
     const daysSinceDelivery = Math.floor(
       (Date.now() - new Date(order.deliveredAt).getTime()) / MS_PER_DAY
@@ -28,11 +40,10 @@ function openReturn(order, lines) {
       throw new Error(`a return cannot be opened more than ${RETURN_WINDOW_DAYS} days after delivery`);
     }
   }
-  // Chưa có deliveredAt => cửa sổ chưa bắt đầu => vẫn cho phép
 
   return {
     orderId: order.id,
-    lines,
+    lines: eligibleLines,
     raisedAt: new Date().toISOString(),
     approvedBy: null,
     approvedAt: null,
